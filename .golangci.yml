@@ -1,0 +1,191 @@
+# .golangci.yml
+version: "2"
+
+linters:
+  default: all
+  enable:
+    # Основные линтеры (в v2 gosimple объединен с staticcheck)
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck      # включает gosimple, unused и staticcheck
+    - unused
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - copyloopvar
+    - cyclop
+    - dupl
+    - durationcheck
+    - err113
+    - errname
+    - errorlint
+    - exhaustive
+    - forbidigo
+    - forcetypeassert
+    - gocheckcompilerdirectives
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    - godot
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    - importas
+    - inamedparam
+    - interfacebloat
+    - ireturn
+    - lll
+    - loggercheck
+    - makezero
+    - misspell
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - reassign
+    - revive
+    - rowserrcheck
+    - sqlclosecheck
+    - tagalign
+    - tagliatelle
+    - testifylint
+    - thelper
+    - unconvert
+    - unparam
+    - usestdlibvars
+    - wastedassign
+    - whitespace
+
+  # Отключаем слишком строгие линтеры
+  disable:
+    - exhaustruct      # Слишком строгий
+    - funlen           # Отключим, т.к. функции могут быть длинными
+    - nlreturn         # Стилистический
+    - wsl              # Стилистический
+    - varnamelen       # Слишком строгий для коротких имен
+    - nonamedreturns   # Именованные возвраты иногда полезны
+    - paralleltest     # Тесты не требуют параллельности
+    - testpackage      # Тесты в том же пакете - это нормально
+    - wrapcheck        # Не всегда нужно оборачивать ошибки
+    - mnd              # Магические числа (часто ложные срабатывания)
+    - gosmopolitan     # Не нужен
+    - zerologlint      # Не используем zerolog
+    - sloglint         # Используем zap, не slog
+    - spancheck        # Не используем OpenTelemetry
+    - protogetter      # Не используем protobuf
+    - perfsprint       # Не критично
+    - intrange         # Не критично
+    - mirror           # Не критично
+    - musttag          # Не критично
+    - modernize        # Не критично
+    - recvcheck        # Может быть полезен, но отключим для начала
+    - usetesting       # Слишком строгий
+    - testableexamples # Не нужен
+    - tparallel        # Не нужен
+    - promlinter       # Не используем prometheus
+    - ginkgolinter     # Не используем ginkgo
+    - godoclint        # Не нужен
+    - grouper          # Стилистический
+    - iface            # Не критично
+    - iotamixing       # Не критично
+    - mirror           # Не критично
+    - nilnesserr       # Дублирует nilerr
+
+  settings:
+    depguard:
+      rules:
+        prevent_unmaintained_packages:
+          list-mode: lax # allow unless explicitely denied
+          files:
+            - $all
+            - "!$test"
+          allow:
+            - $gostd
+          deny:
+            - pkg: io/ioutil
+              desc: "replaced by io and os packages since Go 1.16: https://tip.golang.org/doc/go1.16#ioutil"
+
+  exclusions:
+    generated: lax
+    warn-unused: true
+    presets:
+      - comments
+      - std-error-handling
+      - common-false-positives
+    rules:
+      # Исключения для тестов
+      - path: _test\.go
+        linters:
+          - gocyclo
+          - errcheck
+          - dupl
+          - gosec
+          - gochecknoglobals
+          - gochecknoinits
+          - gocognit
+          - noctx
+          - funlen
+
+      # Исключения для батчера (сложные функции)
+      - path: internal/batcher/
+        linters:
+          - gocyclo
+          - gocognit
+          - cyclop
+          - gochecknoglobals
+        text: "(createClickBatch|flush|flushToRedis|recoveryStateClicks)"
+
+      # Исключения для main
+      - path: cmd/
+        linters:
+          - gochecknoglobals
+          - gochecknoinits
+
+      # Исключения для конфига (много глобальных переменных)
+      - path: internal/config/
+        linters:
+          - gochecknoglobals
+          - gochecknoinits
+
+      # Исключения для логгера (обертки)
+      - path: internal/logger/
+        linters:
+          - wrapcheck
+
+      # Исключаем проверку на оборачивание ошибок в батчере
+      - path: internal/batcher/
+        linters:
+          - wrapcheck
+        text: "error returned from external package is unwrapped"
+
+      # Исключаем слишком длинные строки в логах
+      - path: internal/batcher/
+        linters:
+          - lll
+        source: "logger\\.(Debug|Info|Error|Warn)"
+
+formatters:
+  enable:
+    - gofmt
+  exclusions:
+    generated: strict
+    warn-unused: true
+
+run:
+  timeout: 5m
+  concurrency: 4
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

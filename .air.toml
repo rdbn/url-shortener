@@ -1,0 +1,18 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+  # Команда сборки
+  cmd = "go build -o ./tmp/main ./cmd/server"
+  # Следить за этими расширениями
+  include_ext = ["go", "tpl", "tmpl", "html", "yaml"]
+  # Игнорировать эти папки
+  exclude_dir = ["assets", "tmp", "vendor", ".git"]
+  # Задержка перед перезапуском (чтобы не спамить сборкой)
+  delay = 1000
+  # Fix the deprecation warning by using entrypoint
+  entrypoint = ["./tmp/main"]
+#  post_cmd = ["chmod +x ./tmp/main"]
+
+[log]
+  time = true

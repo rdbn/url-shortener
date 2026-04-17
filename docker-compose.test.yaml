@@ -1,0 +1,24 @@
+services:
+  postgres_test:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: urlshortener
+      POSTGRES_PASSWORD: urlshortener
+      POSTGRES_DB: urlshortener
+    ports:
+      - "5436:5432"
+    tmpfs: /var/lib/postgresql/data
+    networks:
+      - test-back-end-network
+
+  redis_test:
+    image: redis:6.2.5-alpine
+    ports:
+      - "6382:6379"
+    tmpfs: /data
+    networks:
+      - test-back-end-network
+
+networks:
+  test-back-end-network:
+    driver: bridge

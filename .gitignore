@@ -1,0 +1,19 @@
+# .env files (содержат секреты!)
+.env
+tmp/
+
+# Test binary
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
