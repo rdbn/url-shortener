@@ -8,6 +8,6 @@ import (
 type Storage interface {
 	Save(ctx context.Context, url *domain.URL) error
 	Get(ctx context.Context, shortCode string) (*domain.URL, error)
-	SaveBatch(ctx context.Context, batch map[string]domain.URL) error
+	IncrementClicks(ctx context.Context, shortCode string) (int64, error)
 	Close()
 }

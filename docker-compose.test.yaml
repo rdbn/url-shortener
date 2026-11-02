@@ -19,6 +19,19 @@ services:
     networks:
       - test-back-end-network
 
+  migrate_test:
+    image: migrate/migrate:v4.20.1
+    command:
+      - -path=/migrations
+      - -database=postgres://urlshortener:urlshortener@postgres_test:5432/urlshortener?sslmode=disable
+      - up
+    volumes:
+      - ./migrations:/migrations:ro
+    depends_on:
+      - postgres_test
+    networks:
+      - test-back-end-network
+
 networks:
   test-back-end-network:
     driver: bridge

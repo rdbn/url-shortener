@@ -10,8 +10,6 @@ import (
 	"github.com/go-redis/redis/v8"
 )
 
-const cacheKey = "url_domain_batch"
-
 type URLRedis struct {
 	cache *redis.Client
 	ttl   time.Duration
@@ -72,51 +70,6 @@ func (c *URLRedis) Save(ctx context.Context, url *domain.URL) error {
 
 func (c *URLRedis) Delete(ctx context.Context, shortCode string) error {
 	err := c.cache.Del(ctx, c.cacheKey(shortCode)).Err()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *URLRedis) GetURLDomainBatchAndClear(ctx context.Context) (map[string]domain.URL, error) {
-	pipe := c.cache.Pipeline()
-	getAll := pipe.HGetAll(ctx, cacheKey)
-	pipe.Del(ctx, cacheKey)
-
-	_, err := pipe.Exec(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	batch, err := getAll.Result()
-	if err != nil {
-		return nil, err
-	}
-
-	clickBatch := make(map[string]domain.URL)
-
-	for _, v := range batch {
-		var url domain.URL
-
-		err := json.Unmarshal([]byte(v), &url)
-		if err != nil {
-			return nil, err
-		}
-
-		clickBatch[url.ShortCode] = url
-	}
-
-	return clickBatch, nil
-}
-
-func (c *URLRedis) SaveToBatch(ctx context.Context, url *domain.URL) error {
-	data, err := json.Marshal(url)
-	if err != nil {
-		return err
-	}
-
-	err = c.cache.HSet(ctx, cacheKey, c.cacheKey(url.ShortCode), data).Err()
 	if err != nil {
 		return err
 	}

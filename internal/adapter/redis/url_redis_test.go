@@ -19,7 +19,6 @@ func setupRedisTest(t *testing.T) *URLRedis {
 
 	return &URLRedis{cache: client}
 }
-
 func TestCachedStorage_Get_CacheHit(t *testing.T) {
 	cacheStore := setupRedisTest(t)
 	ctx := context.Background()

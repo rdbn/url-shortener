@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
+	"fmt"
 	"time"
 	"url-shortener/internal/domain"
 
@@ -62,9 +62,7 @@ func (s *URLPostgres) Save(ctx context.Context, url *domain.URL) error {
 			return domain.ErrDuplicate
 		}
 
-		log.Fatal(err)
-
-		return domain.ErrSaveURL
+		return fmt.Errorf("%w: %v", domain.ErrSaveURL, err)
 	}
 
 	return nil
@@ -95,28 +93,19 @@ func (s *URLPostgres) Get(ctx context.Context, shortCode string) (*domain.URL, e
 	return &url, nil
 }
 
-func (s *URLPostgres) SaveBatch(ctx context.Context, batch map[string]domain.URL) error {
-	query := "UPDATE urls SET clicks = $1, updated_at = now() WHERE short_code = $2"
-
-	tx, err := s.db.Begin()
-	defer func(tx *sql.Tx) {
-		err := tx.Rollback()
-		if err != nil {
-			panic(err)
-		}
-	}(tx)
+func (s *URLPostgres) IncrementClicks(ctx context.Context, shortCode string) (int64, error) {
+	var clicks int64
+	err := s.db.QueryRowContext(ctx,
+		"UPDATE urls SET clicks = clicks + 1, updated_at = now() WHERE short_code = $1 RETURNING clicks",
+		shortCode,
+	).Scan(&clicks)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, domain.ErrNotFound
+	}
 	if err != nil {
-		return err
+		return 0, fmt.Errorf("increment URL clicks: %w", err)
 	}
-
-	for shortCode, urlDomain := range batch {
-		_, err := tx.ExecContext(ctx, query, urlDomain.Clicks, shortCode)
-		if err != nil {
-			return domain.ErrBatchIncrementClicks
-		}
-	}
-
-	return nil
+	return clicks, nil
 }
 
 func (s *URLPostgres) Close() {

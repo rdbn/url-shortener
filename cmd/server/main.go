@@ -9,7 +9,6 @@ import (
 	"syscall"
 	"time"
 	"url-shortener/config"
-	"url-shortener/internal/adapter/batcher"
 	"url-shortener/internal/adapter/postgres"
 	"url-shortener/internal/adapter/redis"
 	http2 "url-shortener/internal/controller/http"
@@ -48,16 +47,7 @@ func main() {
 	)
 	defer urlRedis.Close()
 
-	urlBatcher := batcher.NewURLBatcher(
-		urlPostgres,
-		urlRedis,
-		log,
-		cfg.FlushInterval,
-	)
-	defer urlBatcher.Stop()
-
-	urlBatcher.Start()
-	urlUseCase := usecase.NewURLUseCase(urlPostgres, urlRedis, urlBatcher)
+	urlUseCase := usecase.NewURLUseCase(urlPostgres, urlRedis)
 	mux := http2.Router(urlUseCase, log, cfg.BaseURL)
 
 	recoveryMiddleware := middleware.RecoveryMiddleware(log)(
@@ -76,22 +66,28 @@ func main() {
 
 	log.Info("Server starting on: " + cfg.ServerPort)
 
-	err := server.ListenAndServe()
-
-	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Error("Server failed:", zap.Error(err))
-	}
-
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.ListenAndServe()
+	}()
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	defer signal.Stop(quit)
 
-	log.Info("Shutting down server...")
+	select {
+	case sig := <-quit:
+		log.Info("Shutting down server...", zap.String("signal", sig.String()))
+	case err := <-serverErr:
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.Error("Server failed", zap.Error(err))
+		}
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err = server.Shutdown(ctx)
+	err := server.Shutdown(ctx)
 	if err != nil {
 		log.Error("Server shutdown failed:", zap.Error(err))
 	}

@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 	"url-shortener/config"
-	"url-shortener/internal/adapter/batcher"
 	"url-shortener/internal/adapter/postgres"
 	"url-shortener/internal/adapter/redis"
 	http2 "url-shortener/internal/controller/http"
@@ -77,6 +76,27 @@ func TestClicks(t *testing.T) {
 		err = statusResp.Body.Close()
 		if err != nil {
 			t.Fatalf("Failed create url short: %v", err)
+		}
+
+		redirectResp, err := client.Get(server.URL + "/" + createResult.ShortCode)
+		if err != nil {
+			t.Fatalf("Failed to follow short URL: %v", err)
+		}
+		if redirectResp.StatusCode != http.StatusFound {
+			t.Fatalf("Expected redirect status %d, got %d", http.StatusFound, redirectResp.StatusCode)
+		}
+		_ = redirectResp.Body.Close()
+
+		statusResp, err = client.Get(server.URL + "/stats/" + createResult.ShortCode)
+		if err != nil {
+			t.Fatalf("Failed to get updated stats: %v", err)
+		}
+		if err := json.NewDecoder(statusResp.Body).Decode(&stats); err != nil {
+			t.Fatalf("Failed to decode updated stats: %v", err)
+		}
+		_ = statusResp.Body.Close()
+		if stats.Clicks != 1 {
+			t.Fatalf("Expected clicks 1 after one redirect, got %d", stats.Clicks)
 		}
 	})
 }
@@ -184,8 +204,7 @@ func testConfig() *config.Config {
 		RedisDB:       config.GetEnvAsInt("REDIS_DB", 0),
 		RedisTTL:      config.GetDuration("REDIS_TTL", 10*time.Minute),
 
-		BaseURL:       config.GetEnv("BASE_URL", "http://localhost:8080"),
-		FlushInterval: 5,
+		BaseURL: config.GetEnv("BASE_URL", "http://localhost:8080"),
 	}
 }
 
@@ -212,15 +231,7 @@ func runServer(t *testing.T, testFunc func(*testing.T, *httptest.Server)) {
 	)
 	defer urlRedisStorage.Close()
 
-	clickBatcher := batcher.NewURLBatcher(
-		urlPostgresStorage,
-		urlRedisStorage,
-		nop,
-		cfg.FlushInterval,
-	)
-	defer clickBatcher.Stop()
-
-	urlUseCase := usecase.NewURLUseCase(urlPostgresStorage, urlRedisStorage, clickBatcher)
+	urlUseCase := usecase.NewURLUseCase(urlPostgresStorage, urlRedisStorage)
 	mux := http2.Router(urlUseCase, nop, cfg.BaseURL)
 
 	server := httptest.NewServer(mux)

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -37,17 +38,15 @@ type Config struct {
 	RedisTTL      time.Duration
 
 	// App
-	Environment   string
-	LogLevel      string
-	BaseURL       string
-	FlushInterval time.Duration // интервал сброса
+	Environment string
+	LogLevel    string
+	BaseURL     string
 }
 
 func Load() *Config {
 	err := godotenv.Load()
-	if err != nil {
-		log.Println("No .env file found, using environment variables")
-		panic(err)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Printf("Could not load .env file: %v", err)
 	}
 
 	return &Config{
@@ -76,10 +75,9 @@ func Load() *Config {
 		RedisTTL:      GetDuration("REDIS_TTL", 10*time.Minute),
 
 		// App
-		Environment:   GetEnv("ENVIRONMENT", "development"),
-		LogLevel:      GetEnv("LOG_LEVEL", "info"),
-		BaseURL:       GetEnv("BASE_URL", "http://localhost:8080"),
-		FlushInterval: 5 * time.Second,
+		Environment: GetEnv("ENVIRONMENT", "development"),
+		LogLevel:    GetEnv("LOG_LEVEL", "info"),
+		BaseURL:     GetEnv("BASE_URL", "http://localhost:8080"),
 	}
 }
 
